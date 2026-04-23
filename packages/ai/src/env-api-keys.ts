@@ -1,5 +1,39 @@
 import type { KnownProvider } from "./types.js";
 
+export type EnvApiKeyInfo = {
+	value: string;
+	label: string;
+};
+
+const ENV_API_KEY_MAP: Record<string, readonly string[]> = {
+	openai: ["OPENAI_API_KEY"],
+	"azure-openai-responses": ["AZURE_OPENAI_API_KEY"],
+	groq: ["GROQ_API_KEY"],
+	cerebras: ["CEREBRAS_API_KEY"],
+	xai: ["XAI_API_KEY"],
+	openrouter: ["OPENROUTER_API_KEY"],
+	"vercel-ai-gateway": ["AI_GATEWAY_API_KEY"],
+	zai: ["ZAI_API_KEY"],
+	mistral: ["MISTRAL_API_KEY"],
+	minimax: ["MINIMAX_API_KEY"],
+	"minimax-cn": ["MINIMAX_CN_API_KEY"],
+	huggingface: ["HF_TOKEN"],
+	fireworks: ["FIREWORKS_API_KEY"],
+	opencode: ["OPENCODE_API_KEY"],
+	"opencode-go": ["OPENCODE_API_KEY"],
+	"kimi-coding": ["KIMI_API_KEY"],
+};
+
+function getFirstEnvCredential(envVars: readonly string[]): EnvApiKeyInfo | undefined {
+	for (const envVar of envVars) {
+		const value = process.env[envVar];
+		if (value) {
+			return { value, label: envVar };
+		}
+	}
+	return undefined;
+}
+
 /**
  * Get API key for provider from known environment variables, e.g. OPENAI_API_KEY.
  *
@@ -7,15 +41,27 @@ import type { KnownProvider } from "./types.js";
  */
 export function getEnvApiKey(provider: KnownProvider): string | undefined;
 export function getEnvApiKey(provider: string): string | undefined;
-export function getEnvApiKey(provider: any): string | undefined {
+export function getEnvApiKey(provider: string): string | undefined {
+	return getEnvApiKeyInfo(provider)?.value;
+}
+
+/**
+ * Get API key/auth information for provider from known environment variables.
+ *
+ * The label identifies the environment variable or credential source that matched,
+ * without exposing the credential value.
+ */
+export function getEnvApiKeyInfo(provider: KnownProvider): EnvApiKeyInfo | undefined;
+export function getEnvApiKeyInfo(provider: string): EnvApiKeyInfo | undefined;
+export function getEnvApiKeyInfo(provider: string): EnvApiKeyInfo | undefined {
 	// Fall back to environment variables
 	if (provider === "github-copilot") {
-		return process.env.COPILOT_GITHUB_TOKEN || process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+		return getFirstEnvCredential(["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"]);
 	}
 
 	// ANTHROPIC_OAUTH_TOKEN takes precedence over ANTHROPIC_API_KEY
 	if (provider === "anthropic") {
-		return process.env.ANTHROPIC_OAUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
+		return getFirstEnvCredential(["ANTHROPIC_OAUTH_TOKEN", "ANTHROPIC_API_KEY"]);
 	}
 
 	if (provider === "amazon-bedrock") {
@@ -26,37 +72,26 @@ export function getEnvApiKey(provider: any): string | undefined {
 		// 4. AWS_CONTAINER_CREDENTIALS_RELATIVE_URI - ECS task roles
 		// 5. AWS_CONTAINER_CREDENTIALS_FULL_URI - ECS task roles (full URI)
 		// 6. AWS_WEB_IDENTITY_TOKEN_FILE - IRSA (IAM Roles for Service Accounts)
-		if (
-			process.env.AWS_PROFILE ||
-			(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) ||
-			process.env.AWS_BEARER_TOKEN_BEDROCK ||
-			process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI ||
-			process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI ||
-			process.env.AWS_WEB_IDENTITY_TOKEN_FILE
-		) {
-			return "<authenticated>";
+		if (process.env.AWS_PROFILE) {
+			return { value: "<authenticated>", label: "AWS_PROFILE" };
+		}
+		if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+			return { value: "<authenticated>", label: "AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY" };
+		}
+		if (process.env.AWS_BEARER_TOKEN_BEDROCK) {
+			return { value: "<authenticated>", label: "AWS_BEARER_TOKEN_BEDROCK" };
+		}
+		if (process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI) {
+			return { value: "<authenticated>", label: "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI" };
+		}
+		if (process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI) {
+			return { value: "<authenticated>", label: "AWS_CONTAINER_CREDENTIALS_FULL_URI" };
+		}
+		if (process.env.AWS_WEB_IDENTITY_TOKEN_FILE) {
+			return { value: "<authenticated>", label: "AWS_WEB_IDENTITY_TOKEN_FILE" };
 		}
 	}
 
-	const envMap: Record<string, string> = {
-		openai: "OPENAI_API_KEY",
-		"azure-openai-responses": "AZURE_OPENAI_API_KEY",
-		groq: "GROQ_API_KEY",
-		cerebras: "CEREBRAS_API_KEY",
-		xai: "XAI_API_KEY",
-		openrouter: "OPENROUTER_API_KEY",
-		"vercel-ai-gateway": "AI_GATEWAY_API_KEY",
-		zai: "ZAI_API_KEY",
-		mistral: "MISTRAL_API_KEY",
-		minimax: "MINIMAX_API_KEY",
-		"minimax-cn": "MINIMAX_CN_API_KEY",
-		huggingface: "HF_TOKEN",
-		fireworks: "FIREWORKS_API_KEY",
-		opencode: "OPENCODE_API_KEY",
-		"opencode-go": "OPENCODE_API_KEY",
-		"kimi-coding": "KIMI_API_KEY",
-	};
-
-	const envVar = envMap[provider];
-	return envVar ? process.env[envVar] : undefined;
+	const envVars = ENV_API_KEY_MAP[provider];
+	return envVars ? getFirstEnvCredential(envVars) : undefined;
 }
