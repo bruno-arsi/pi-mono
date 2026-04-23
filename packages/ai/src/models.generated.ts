@@ -3138,6 +3138,7 @@ export const MODELS = {
 			provider: "github-copilot",
 			baseUrl: "https://api.individual.githubcopilot.com",
 			headers: {"User-Agent":"GitHubCopilotChat/0.35.0","Editor-Version":"vscode/1.107.0","Editor-Plugin-Version":"copilot-chat/0.35.0","Copilot-Integration-Id":"vscode-chat"},
+			compat: {"supportsEagerToolInputStreaming":false},
 			reasoning: true,
 			input: ["text", "image"],
 			cost: {
@@ -3156,6 +3157,7 @@ export const MODELS = {
 			provider: "github-copilot",
 			baseUrl: "https://api.individual.githubcopilot.com",
 			headers: {"User-Agent":"GitHubCopilotChat/0.35.0","Editor-Version":"vscode/1.107.0","Editor-Plugin-Version":"copilot-chat/0.35.0","Copilot-Integration-Id":"vscode-chat"},
+			compat: {"supportsEagerToolInputStreaming":false},
 			reasoning: true,
 			input: ["text", "image"],
 			cost: {
