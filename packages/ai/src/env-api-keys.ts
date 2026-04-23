@@ -1,37 +1,76 @@
 import type { KnownProvider } from "./types.js";
 
-export type EnvApiKeyInfo = {
-	value: string;
-	label: string;
-};
-
-const ENV_API_KEY_MAP: Record<string, readonly string[]> = {
-	openai: ["OPENAI_API_KEY"],
-	"azure-openai-responses": ["AZURE_OPENAI_API_KEY"],
-	groq: ["GROQ_API_KEY"],
-	cerebras: ["CEREBRAS_API_KEY"],
-	xai: ["XAI_API_KEY"],
-	openrouter: ["OPENROUTER_API_KEY"],
-	"vercel-ai-gateway": ["AI_GATEWAY_API_KEY"],
-	zai: ["ZAI_API_KEY"],
-	mistral: ["MISTRAL_API_KEY"],
-	minimax: ["MINIMAX_API_KEY"],
-	"minimax-cn": ["MINIMAX_CN_API_KEY"],
-	huggingface: ["HF_TOKEN"],
-	fireworks: ["FIREWORKS_API_KEY"],
-	opencode: ["OPENCODE_API_KEY"],
-	"opencode-go": ["OPENCODE_API_KEY"],
-	"kimi-coding": ["KIMI_API_KEY"],
-};
-
-function getFirstEnvCredential(envVars: readonly string[]): EnvApiKeyInfo | undefined {
-	for (const envVar of envVars) {
-		const value = process.env[envVar];
-		if (value) {
-			return { value, label: envVar };
-		}
+function getApiKeyEnvVars(provider: string): readonly string[] | undefined {
+	if (provider === "github-copilot") {
+		return ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"];
 	}
-	return undefined;
+
+	// ANTHROPIC_OAUTH_TOKEN takes precedence over ANTHROPIC_API_KEY
+	if (provider === "anthropic") {
+		return ["ANTHROPIC_OAUTH_TOKEN", "ANTHROPIC_API_KEY"];
+	}
+
+	const envMap: Record<string, string> = {
+		openai: "OPENAI_API_KEY",
+		"azure-openai-responses": "AZURE_OPENAI_API_KEY",
+		groq: "GROQ_API_KEY",
+		cerebras: "CEREBRAS_API_KEY",
+		xai: "XAI_API_KEY",
+		openrouter: "OPENROUTER_API_KEY",
+		"vercel-ai-gateway": "AI_GATEWAY_API_KEY",
+		zai: "ZAI_API_KEY",
+		mistral: "MISTRAL_API_KEY",
+		minimax: "MINIMAX_API_KEY",
+		"minimax-cn": "MINIMAX_CN_API_KEY",
+		huggingface: "HF_TOKEN",
+		fireworks: "FIREWORKS_API_KEY",
+		opencode: "OPENCODE_API_KEY",
+		"opencode-go": "OPENCODE_API_KEY",
+		"kimi-coding": "KIMI_API_KEY",
+	};
+
+	const envVar = envMap[provider];
+	return envVar ? [envVar] : undefined;
+}
+
+/**
+ * Find configured environment variables that can provide an API key for a provider.
+ *
+ * This only reports actual API key variables. It intentionally excludes ambient
+ * credential sources such as AWS profiles and AWS IAM credentials.
+ */
+export function findEnvKeys(provider: KnownProvider): string[] | undefined;
+export function findEnvKeys(provider: string): string[] | undefined;
+export function findEnvKeys(provider: string): string[] | undefined {
+	const envVars = getApiKeyEnvVars(provider);
+	if (!envVars) return undefined;
+
+	const found = envVars.filter((envVar) => !!process.env[envVar]);
+	return found.length > 0 ? found : undefined;
+}
+
+/**
+ * Check if a provider has environment-backed authentication available.
+ *
+ * This includes non-API-key credential sources such as AWS credentials for Bedrock.
+ */
+export function hasEnvAuth(provider: KnownProvider): boolean;
+export function hasEnvAuth(provider: string): boolean;
+export function hasEnvAuth(provider: string): boolean {
+	if (findEnvKeys(provider)) return true;
+
+	if (provider === "amazon-bedrock") {
+		return !!(
+			process.env.AWS_PROFILE ||
+			(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) ||
+			process.env.AWS_BEARER_TOKEN_BEDROCK ||
+			process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI ||
+			process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI ||
+			process.env.AWS_WEB_IDENTITY_TOKEN_FILE
+		);
+	}
+
+	return false;
 }
 
 /**
@@ -42,56 +81,28 @@ function getFirstEnvCredential(envVars: readonly string[]): EnvApiKeyInfo | unde
 export function getEnvApiKey(provider: KnownProvider): string | undefined;
 export function getEnvApiKey(provider: string): string | undefined;
 export function getEnvApiKey(provider: string): string | undefined {
-	return getEnvApiKeyInfo(provider)?.value;
-}
-
-/**
- * Get API key/auth information for provider from known environment variables.
- *
- * The label identifies the environment variable or credential source that matched,
- * without exposing the credential value.
- */
-export function getEnvApiKeyInfo(provider: KnownProvider): EnvApiKeyInfo | undefined;
-export function getEnvApiKeyInfo(provider: string): EnvApiKeyInfo | undefined;
-export function getEnvApiKeyInfo(provider: string): EnvApiKeyInfo | undefined {
-	// Fall back to environment variables
-	if (provider === "github-copilot") {
-		return getFirstEnvCredential(["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"]);
-	}
-
-	// ANTHROPIC_OAUTH_TOKEN takes precedence over ANTHROPIC_API_KEY
-	if (provider === "anthropic") {
-		return getFirstEnvCredential(["ANTHROPIC_OAUTH_TOKEN", "ANTHROPIC_API_KEY"]);
-	}
+	const envKeys = findEnvKeys(provider);
+	if (envKeys?.[0]) return process.env[envKeys[0]];
 
 	if (provider === "amazon-bedrock") {
 		// Amazon Bedrock supports multiple credential sources:
 		// 1. AWS_PROFILE - named profile from ~/.aws/credentials
 		// 2. AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY - standard IAM keys
-		// 3. AWS_BEARER_TOKEN_BEDROCK - Bedrock API keys (bearer token)
+		// 3. AWS_BEARER_TOKEN_BEDROCK - Bedrock bearer token
 		// 4. AWS_CONTAINER_CREDENTIALS_RELATIVE_URI - ECS task roles
 		// 5. AWS_CONTAINER_CREDENTIALS_FULL_URI - ECS task roles (full URI)
 		// 6. AWS_WEB_IDENTITY_TOKEN_FILE - IRSA (IAM Roles for Service Accounts)
-		if (process.env.AWS_PROFILE) {
-			return { value: "<authenticated>", label: "AWS_PROFILE" };
-		}
-		if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-			return { value: "<authenticated>", label: "AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY" };
-		}
-		if (process.env.AWS_BEARER_TOKEN_BEDROCK) {
-			return { value: "<authenticated>", label: "AWS_BEARER_TOKEN_BEDROCK" };
-		}
-		if (process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI) {
-			return { value: "<authenticated>", label: "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI" };
-		}
-		if (process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI) {
-			return { value: "<authenticated>", label: "AWS_CONTAINER_CREDENTIALS_FULL_URI" };
-		}
-		if (process.env.AWS_WEB_IDENTITY_TOKEN_FILE) {
-			return { value: "<authenticated>", label: "AWS_WEB_IDENTITY_TOKEN_FILE" };
+		if (
+			process.env.AWS_PROFILE ||
+			(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) ||
+			process.env.AWS_BEARER_TOKEN_BEDROCK ||
+			process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI ||
+			process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI ||
+			process.env.AWS_WEB_IDENTITY_TOKEN_FILE
+		) {
+			return "<authenticated>";
 		}
 	}
 
-	const envVars = ENV_API_KEY_MAP[provider];
-	return envVars ? getFirstEnvCredential(envVars) : undefined;
+	return undefined;
 }
