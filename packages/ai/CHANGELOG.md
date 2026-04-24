@@ -10,6 +10,7 @@
 
 - Fixed GPT-5.5 generated context window metadata to use the observed 272k limit.
 - Fixed provider request controls to expose `timeoutMs` and `maxRetries` in stream options and forward them through OpenAI/Azure/Anthropic request options, preventing unconfigurable SDK timeout/retry defaults on long-running local inference requests ([#3627](https://github.com/badlogic/pi-mono/issues/3627))
+- Fixed OpenAI/Azure/Anthropic provider request option forwarding to omit undefined `timeout`/`maxRetries`, avoiding SDK validation errors such as `timeout must be an integer` when provider controls are not set ([#3627](https://github.com/badlogic/pi-mono/issues/3627))
 - Fixed OpenAI-compatible completion usage parsing to stop double-counting reasoning tokens already included in `completion_tokens` ([#3581](https://github.com/badlogic/pi-mono/issues/3581))
 - Fixed long cache retention compatibility by adding `compat.supportsLongCacheRetention`, allowing Anthropic Messages and OpenAI-compatible proxies to explicitly disable long-retention fields while enabling long retention by default when requested ([#3543](https://github.com/badlogic/pi-mono/issues/3543))
 - Fixed `openai-responses` compatibility by adding `compat.sendSessionIdHeader: false`, allowing strict OpenAI-compatible proxies to omit the underscore-containing `session_id` header while still sending other session-affinity headers ([#3579](https://github.com/badlogic/pi-mono/issues/3579))
