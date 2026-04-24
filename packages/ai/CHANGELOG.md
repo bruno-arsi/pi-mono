@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- Fixed OpenAI-compatible prompt cache tests to cover proxies that explicitly disable long cache retention.
 - Stopped sending `tools: []` on OpenAI-compatible, Anthropic, OpenAI Responses, OpenAI Codex Responses, and Azure OpenAI Responses requests when no tools are active (e.g. `pi --no-tools`). DashScope/Aliyun Qwen (OpenAI-compatible) rejects empty tools arrays with `"[] is too short - 'tools'"` (HTTP 400); the field is now omitted unless the conversation has tool history (the existing LiteLLM/Anthropic-proxy workaround).
 - Fixed GPT-5.5 generated context window metadata to use the observed 272k limit.
 - Fixed provider request controls to expose `timeoutMs` and `maxRetries` in stream options and forward them through OpenAI/Azure/Anthropic request options, preventing unconfigurable SDK timeout/retry defaults on long-running local inference requests ([#3627](https://github.com/badlogic/pi-mono/issues/3627))
