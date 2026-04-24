@@ -26,6 +26,7 @@
 
 ### Fixed
 
+- Fixed extension flag docs to show `pi.getFlag()` using registered flag names without the CLI `--` prefix ([#3614](https://github.com/badlogic/pi-mono/issues/3614))
 - Fixed `/model` selector cancellation to request render instead of incorrectly triggering login selector.
 - Changed login, OAuth, and extension selectors for more consistent styling.
 - Added Amazon Bedrock setup guidance to `/login` and updated `/model` copy to refer to configured providers instead of only API keys.
