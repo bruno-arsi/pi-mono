@@ -2697,6 +2697,12 @@ export class InteractiveMode {
 				this.ui.requestRender();
 				break;
 
+			case "session_info_changed":
+				this.updateTerminalTitle();
+				this.footer.invalidate();
+				this.ui.requestRender();
+				break;
+
 			case "message_start":
 				if (event.message.role === "custom") {
 					this.addMessageToChat(event.message);
@@ -5038,8 +5044,7 @@ export class InteractiveMode {
 			return;
 		}
 
-		this.sessionManager.appendSessionInfo(name);
-		this.updateTerminalTitle();
+		this.session.setSessionName(name);
 		this.chatContainer.addChild(new Spacer(1));
 		this.chatContainer.addChild(new Text(theme.fg("dim", `Session name set: ${name}`), 1, 0));
 		this.ui.requestRender();
