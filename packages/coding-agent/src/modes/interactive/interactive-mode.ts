@@ -175,6 +175,25 @@ function hasDefaultModelProvider(providerId: string): providerId is keyof typeof
 	return providerId in defaultModelPerProvider;
 }
 
+// Compare upstream npm "latest" to our local fork version (e.g. "0.70.2-fork.0").
+// Strip any prerelease/build suffix and compare only major.minor.patch. The fork
+// prerelease tag exists to mark provenance (we are based on upstream X.Y.Z) and
+// must not by itself trigger an "update available" notification.
+function parseSemverCore(v: string): { major: number; minor: number; patch: number } | null {
+	const m = v.match(/^(\d+)\.(\d+)\.(\d+)/);
+	if (!m) return null;
+	return { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]) };
+}
+
+function isUpstreamNewer(upstreamVersion: string, localVersion: string): boolean {
+	const upstream = parseSemverCore(upstreamVersion);
+	const local = parseSemverCore(localVersion);
+	if (!upstream || !local) return upstreamVersion !== localVersion;
+	if (upstream.major !== local.major) return upstream.major > local.major;
+	if (upstream.minor !== local.minor) return upstream.minor > local.minor;
+	return upstream.patch > local.patch;
+}
+
 const BEDROCK_PROVIDER_ID = "amazon-bedrock";
 
 const API_KEY_LOGIN_PROVIDERS: Record<string, string> = {
@@ -779,6 +798,13 @@ export class InteractiveMode {
 
 	/**
 	 * Check npm registry for a newer version.
+	 *
+	 * Fork-aware: this fork ships versions like "0.70.2-fork.N" that mirror the
+	 * upstream release they were synced from. The published upstream package
+	 * never carries the fork prerelease, so a naive `latest !== this.version`
+	 * check fires every time. We compare only major.minor.patch (ignoring the
+	 * fork prerelease tag) and report a newer version only when upstream has
+	 * actually moved past our sync base.
 	 */
 	private async checkForNewVersion(): Promise<string | undefined> {
 		if (process.env.PI_SKIP_VERSION_CHECK || process.env.PI_OFFLINE) return undefined;
@@ -792,7 +818,7 @@ export class InteractiveMode {
 			const data = (await response.json()) as { version?: string };
 			const latestVersion = data.version;
 
-			if (latestVersion && latestVersion !== this.version) {
+			if (latestVersion && isUpstreamNewer(latestVersion, this.version)) {
 				return latestVersion;
 			}
 

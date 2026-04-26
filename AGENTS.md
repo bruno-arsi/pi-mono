@@ -220,6 +220,17 @@ Providers upstream introduced *after* the fork point that we deliberately do not
 
 - `deepseek` provider (and any `packages/ai/src/providers/deepseek*.ts`, `KnownProvider`/`KnownApi` `"deepseek"` entries, `deepseek` envMap entry, default-model entries, docs sections, or test blocks). Skip cherry-picks whose primary purpose is adding/fixing DeepSeek. If a non-DeepSeek fix is bundled with DeepSeek changes in the same upstream commit, surface it to the user instead of silently dropping or partially applying it.
 
+### Versioning policy (fork mirrors upstream tip)
+
+All packages in this monorepo carry a version of the form `<upstream-version>-fork.<N>` (e.g. `0.70.2-fork.0`). The semver core (`<upstream-version>`) **must always match the latest upstream `Release vX.Y.Z` commit we have synced past**. The `-fork.N` prerelease tag marks our customizations on top of that upstream base.
+
+Rules:
+
+- We **never publish to npm** — these versions exist only locally and in our fork's `origin/main`.
+- Upstream's `Release vX.Y.Z` and `Add [Unreleased] section for next cycle` commits are still **skipped** during sync (they touch CHANGELOG/release machinery we don't run). The repo-syncer agent must instead **manually rebump** every `package.json` version in the monorepo (the 7 main packages plus the example/extension packages under `packages/coding-agent/examples/extensions/*` and `packages/web-ui/example`) to `<upstream-tip-version>-fork.0` after the cherry-pick batch, run `node scripts/sync-versions.js` to keep inter-package deps in lockstep, and run `npm install` to refresh `package-lock.json`.
+- If we make additional fork-only commits on top of the same upstream base, bump the suffix: `0.70.2-fork.0` → `0.70.2-fork.1`, etc.
+- The "new version available" banner in `packages/coding-agent/src/modes/interactive/interactive-mode.ts` (`checkForNewVersion` + `isUpstreamNewer`) compares only `major.minor.patch` against upstream's npm `latest`. It deliberately ignores the `-fork.N` prerelease tag so the banner only fires when upstream actually advances past our base. Do not revert that fork-aware comparison during sync — upstream has only the naive `latest !== this.version` check.
+
 ### Modified (changes must survive any sync)
 
 - `packages/ai/src/types.ts` — `KnownApi` and `KnownProvider` unions have all Google entries removed. The `thoughtSignature` comment on `ToolCall` was rephrased to remove the "Google-specific" wording (it is used by `openai-completions` for `reasoning.encrypted` payloads).

@@ -114,6 +114,34 @@ grep -l '"google":\|"google-vertex":\|"google-gemini-cli":\|"google-antigravity"
 
 If any of these return results, identify the cherry-pick that reintroduced them, surface it to the user, and revert that pick (`git revert <sha>` or drop it from the branch). Do not push until clean.
 
+### 5b. Re-stamp fork versions to upstream tip
+
+`AGENTS.md` "Versioning policy" requires every package to carry `<upstream-version>-fork.<N>`. The upstream `Release vX.Y.Z` commits are skipped (release machinery), so package.json versions don't move automatically.
+
+Find the latest `Release v...` commit on `upstream/main` that is an ancestor of the cherry-picked range:
+
+```bash
+git log upstream/main --grep='^Release v' --pretty='%H %s' | head -5
+```
+
+Pick the highest version reachable from `upstream/main` (e.g. `Release v0.70.2`). Rebump every `package.json` in the monorepo (main packages plus example/extension ones) to `<that-version>-fork.0`, run the sync script, refresh the lockfile, and commit:
+
+```bash
+# Replace "version": "<old>" with "version": "<X.Y.Z>-fork.0" in every
+# package.json under packages/ (main + examples). A quick way to verify:
+grep -rn '"version":' packages/*/package.json packages/*/example/package.json packages/coding-agent/examples/extensions/*/package.json
+
+node scripts/sync-versions.js
+npm install     # refreshes package-lock.json with the new versions
+git add packages/ package-lock.json
+git commit -m "chore(fork): bump fork version to <X.Y.Z>-fork.0"
+```
+
+Notes:
+- If any of the cherry-picked commits in this sync are fork-only fixes layered on top of the same upstream base as the previous sync, use `-fork.<N+1>` instead of `-fork.0`. Otherwise reset to `-fork.0`.
+- Do **not** cherry-pick the upstream `Release v...` or `Add [Unreleased] section` commits. They stay on the SKIP list. We only mirror the version *number*.
+- Do not revert the fork-aware `isUpstreamNewer` helper / `checkForNewVersion` change in `packages/coding-agent/src/modes/interactive/interactive-mode.ts` — upstream has the naive equality check; ours intentionally diverges.
+
 ### 6. Type-check
 
 `AGENTS.md`'s general "never run `npm test`" rule is **explicitly relaxed for this sync workflow** — see step 7. Start with `npm run check` from the repo root (biome + tsgo type-check):
