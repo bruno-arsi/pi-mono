@@ -191,6 +191,67 @@ For non-standard auth, create utility (e.g., `bedrock-utils.ts`) with credential
 
 The script handles: version bump, CHANGELOG finalization, commit, tag, publish, and adding new `[Unreleased]` sections.
 
+## Fork Customizations (do not overwrite)
+
+This repository is a fork of `badlogic/pi-mono` (configured as `upstream`). Our copy is `bruno-arsi/pi-mono` (configured as `origin`). Upstream code is generally relevant and worth merging, **but our customizations are equally important and must not be silently overwritten** by any sync, rebase, cherry-pick, or merge.
+
+**Sync direction is one-way: upstream → origin only.** We never push to `upstream` and we never open pull requests against `badlogic/pi-mono`. Our fork is a private downstream consumer; contributions back to upstream are out of scope. Any agent that thinks it should push to upstream, open a PR there, or otherwise propagate our changes back is wrong — stop and ask the user.
+
+Any agent performing fork sync work (see `.claude/agents/repo-syncer.md`) MUST read this section first and respect every entry. If upstream changes a file listed here, the agent must surface the conflict to the user instead of accepting upstream's version.
+
+### Removed entirely (must never be reintroduced)
+
+We dropped Google/Gemini provider support and the `@google/genai` SDK. Reintroducing any of the following would silently undo that work:
+
+- `packages/ai/src/providers/google.ts`, `google-vertex.ts`, `google-gemini-cli.ts`, `google-shared.ts`
+- `packages/ai/src/utils/oauth/google-antigravity.ts`, `google-gemini-cli.ts`
+- `packages/coding-agent/examples/extensions/antigravity-image-gen.ts`
+- The `@google/genai` dependency in `packages/ai/package.json`
+- Provider strings: `"google"`, `"google-vertex"`, `"google-gemini-cli"`, `"google-antigravity"`
+- API strings: `"google-generative-ai"`, `"google-gemini-cli"`, `"google-vertex"`
+- OAuth providers: `geminiCliOAuthProvider`, `antigravityOAuthProvider`
+- Pure-Google test files: `packages/ai/test/google-*.test.ts`
+
+If a cherry-pick or merge would recreate any of these, abort and ask the user.
+
+### Modified (changes must survive any sync)
+
+- `packages/ai/src/types.ts` — `KnownApi` and `KnownProvider` unions have all Google entries removed. The `thoughtSignature` comment on `ToolCall` was rephrased to remove the "Google-specific" wording (it is used by `openai-completions` for `reasoning.encrypted` payloads).
+- `packages/ai/src/index.ts` — Google provider option type re-exports removed.
+- `packages/ai/src/env-api-keys.ts` — Vertex ADC detection block, dynamic node:fs/os/path imports for it, and the `google` entry in `envMap` are gone.
+- `packages/ai/src/providers/register-builtins.ts` — Google provider module interfaces, lazy loaders, exports, and `registerApiProvider` calls removed.
+- `packages/ai/src/utils/oauth/index.ts` — Google OAuth re-exports and registry entries removed.
+- `packages/ai/package.json` — `./google`, `./google-gemini-cli`, `./google-vertex` subpath exports removed; `@google/genai` dropped from `dependencies`; `gemini` removed from `keywords`; `canvas` removed from `devDependencies`.
+- `packages/ai/scripts/generate-models.ts` — Google sections excluded (data.google block, opencode `@ai-sdk/google` branch skipped via `continue`, antigravity `contextWindow` override, manual `gemini-3.1-flash-lite-preview` add, `cloudCodeAssistModels`, `antigravityModels`, `vertexModels` blocks). The OpenCode comment explicitly says Google entries are skipped.
+- `packages/ai/src/models.generated.ts` — Regenerated without any `provider: "google*"` or `api: "google-*"` entries. Gemini-named models served via *other* providers (vercel-ai-gateway, openrouter, github-copilot, opencode) are kept because they use other APIs.
+- `packages/ai/test/*` — Pure-Google test files were deleted; cross-provider tests had Google blocks removed but kept Gemini-via-other-provider blocks.
+- `packages/ai/README.md` — Google/Vertex/Gemini OAuth sections removed.
+- `packages/coding-agent/src/cli/args.ts:209` — Default provider in `--help` is `anthropic` (was `google`).
+- `packages/coding-agent/src/core/model-resolver.ts` — `defaultModelPerProvider` no longer has `google`, `google-gemini-cli`, `google-antigravity`, `google-vertex` entries.
+- `packages/coding-agent/test/{utilities,compaction-thinking-model,model-registry,auth-storage,args}.test.ts` — Google references removed; antigravity describe block in compaction test deleted.
+- `packages/coding-agent/docs/{models,custom-provider,providers,extensions,settings,rpc}.md` — Google sections and table rows removed.
+- Removed `packages/ai/scripts/generate-test-image.ts` (the `canvas` test fixture generator). The fixture `packages/ai/test/data/red-circle.png` is now committed instead of generated.
+
+### Added (local-only, do not push to upstream)
+
+- `rebuild-and-install-pi.sh` — Local rebuild + global install script.
+- `.claude/agents/repo-syncer.md` — This fork's sync agent.
+
+### Test-mock fixes (kept in sync with current production code)
+
+These fixes update test scaffolding that drifted from production. They are kept in our fork; if upstream applies similar fixes the cherry-pick may conflict — resolve preserving our version unless upstream's fix is materially different:
+
+- `packages/coding-agent/test/print-mode.test.ts` — `setRebindSession: vi.fn()` added to `FakeRuntimeHost` (type + factory).
+- `packages/coding-agent/test/rpc-prompt-response-semantics.test.ts` — `setRebindSession: vi.fn()` added to runtimeHost mock.
+- `packages/coding-agent/test/agent-session-concurrent.test.ts` — `invalidate: () => {}` added to both `_extensionRunner` stubs (type + value).
+- `packages/coding-agent/test/interactive-mode-compaction.test.ts` — `terminal: { setProgress: vi.fn() }` added to the `ui` mock.
+- `packages/coding-agent/test/interactive-mode-clone-command.test.ts` — `handleRuntimeSessionChange` removed from `CloneCommandContext` and assertion (production no longer calls it).
+- `packages/ai/test/openai-completions-tool-choice.test.ts` — Four zai tests removed because they referenced model IDs (`glm-5`, `glm-4.7-flash`, `glm-4.6v`) that no longer exist in the regenerated `models.generated.ts` (upstream catalog drift).
+
+### Reasoning summary
+
+The fork removed Google support to drop the `@google/genai` SDK and its transitive deps (specifically the `node-domexception` deprecation chain via `gaxios` → `node-fetch@3` → `fetch-blob`). Anything that brings the Google providers back also brings that dep chain back, defeating the purpose of the fork. Treat this as a hard invariant.
+
 ## **CRITICAL** Git Rules for Parallel Agents **CRITICAL**
 
 Multiple agents may work on different files in the same worktree simultaneously. You MUST follow these rules:

@@ -9,20 +9,13 @@ export type KnownApi =
 	| "azure-openai-responses"
 	| "openai-codex-responses"
 	| "anthropic-messages"
-	| "bedrock-converse-stream"
-	| "google-generative-ai"
-	| "google-gemini-cli"
-	| "google-vertex";
+	| "bedrock-converse-stream";
 
 export type Api = KnownApi | (string & {});
 
 export type KnownProvider =
 	| "amazon-bedrock"
 	| "anthropic"
-	| "google"
-	| "google-gemini-cli"
-	| "google-antigravity"
-	| "google-vertex"
 	| "openai"
 	| "azure-openai-responses"
 	| "openai-codex"
@@ -172,7 +165,7 @@ export interface ToolCall {
 	id: string;
 	name: string;
 	arguments: Record<string, any>;
-	thoughtSignature?: string; // Google-specific: opaque signature for reusing thought context
+	thoughtSignature?: string; // Opaque signature for reusing reasoning context across turns (used by openai-completions for `reasoning.encrypted` payloads)
 }
 
 export interface Usage {

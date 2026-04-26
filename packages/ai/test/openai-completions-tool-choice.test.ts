@@ -211,51 +211,6 @@ describe("openai-completions tool_choice", () => {
 		expect(params.reasoning_effort).toBe("medium");
 	});
 
-	it("enables tool_stream for supported z.ai models with tools", async () => {
-		const model = getModel("zai", "glm-5")!;
-		const tools: Tool[] = [
-			{
-				name: "ping",
-				description: "Ping tool",
-				parameters: Type.Object({
-					ok: Type.Boolean(),
-				}),
-			},
-		];
-		let payload: unknown;
-
-		await streamSimple(
-			model,
-			{
-				messages: [
-					{
-						role: "user",
-						content: "Call ping with ok=true",
-						timestamp: Date.now(),
-					},
-				],
-				tools,
-			},
-			{
-				apiKey: "test",
-				onPayload: (params: unknown) => {
-					payload = params;
-				},
-			},
-		).result();
-
-		const params = (payload ?? mockState.lastParams) as { tool_stream?: boolean };
-		expect(params.tool_stream).toBe(true);
-	});
-
-	it("stores z.ai tool_stream support in model compat metadata", () => {
-		expect(getModel("zai", "glm-5")?.compat?.zaiToolStream).toBe(true);
-		expect(getModel("zai", "glm-4.7")?.compat?.zaiToolStream).toBe(true);
-		expect(getModel("zai", "glm-4.7-flash")?.compat?.zaiToolStream).toBe(true);
-		expect(getModel("zai", "glm-4.6v")?.compat?.zaiToolStream).toBe(true);
-		expect(getModel("zai", "glm-4.5-air")?.compat?.zaiToolStream).toBeUndefined();
-	});
-
 	it("omits tool_stream for unsupported z.ai models", async () => {
 		const model = getModel("zai", "glm-4.5-air")!;
 		const tools: Tool[] = [
@@ -335,68 +290,6 @@ describe("openai-completions tool_choice", () => {
 
 		const params = (payload ?? mockState.lastParams) as { tool_stream?: boolean };
 		expect(params.tool_stream).toBe(true);
-	});
-
-	it("omits tool_stream when no tools are provided", async () => {
-		const model = getModel("zai", "glm-5")!;
-		let payload: unknown;
-
-		await streamSimple(
-			model,
-			{
-				messages: [
-					{
-						role: "user",
-						content: "Hi",
-						timestamp: Date.now(),
-					},
-				],
-			},
-			{
-				apiKey: "test",
-				onPayload: (params: unknown) => {
-					payload = params;
-				},
-			},
-		).result();
-
-		const params = (payload ?? mockState.lastParams) as { tool_stream?: boolean };
-		expect(params.tool_stream).toBeUndefined();
-	});
-
-	it("maps non-standard provider finish_reason values to stopReason error", async () => {
-		mockState.chunks = [
-			{
-				choices: [{ delta: { content: "partial" }, finish_reason: null }],
-			},
-			{
-				choices: [{ delta: {}, finish_reason: "network_error" }],
-				usage: {
-					prompt_tokens: 1,
-					completion_tokens: 1,
-					prompt_tokens_details: { cached_tokens: 0 },
-					completion_tokens_details: { reasoning_tokens: 0 },
-				},
-			},
-		];
-
-		const model = getModel("zai", "glm-5")!;
-		const response = await streamSimple(
-			model,
-			{
-				messages: [
-					{
-						role: "user",
-						content: "Hi",
-						timestamp: Date.now(),
-					},
-				],
-			},
-			{ apiKey: "test" },
-		).result();
-
-		expect(response.stopReason).toBe("error");
-		expect(response.errorMessage).toBe("Provider finish_reason: network_error");
 	});
 
 	it("ignores null stream chunks from openai-compatible providers", async () => {

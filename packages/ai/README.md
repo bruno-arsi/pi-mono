@@ -429,7 +429,6 @@ import { getModel, streamSimple, completeSimple } from '@mariozechner/pi-ai';
 // Many models across providers support thinking/reasoning
 const model = getModel('anthropic', 'claude-sonnet-4-20250514');
 // or getModel('openai', 'gpt-5-mini');
-// or getModel('google', 'gemini-2.5-flash');
 // or getModel('xai', 'grok-code-fast-1');
 // or getModel('groq', 'openai/gpt-oss-20b');
 // or getModel('cerebras', 'gpt-oss-120b');
@@ -476,15 +475,6 @@ const anthropicModel = getModel('anthropic', 'claude-sonnet-4-20250514');
 await complete(anthropicModel, context, {
   thinkingEnabled: true,
   thinkingBudgetTokens: 8192  // Optional token limit
-});
-
-// Google Gemini Thinking
-const googleModel = getModel('google', 'gemini-2.5-flash');
-await complete(googleModel, context, {
-  thinking: {
-    enabled: true,
-    budgetTokens: 8192  // -1 for dynamic, 0 to disable
-  }
 });
 ```
 
@@ -627,9 +617,6 @@ The callback is supported by `stream`, `complete`, `streamSimple`, and `complete
 The library uses a registry of API implementations. Built-in APIs include:
 
 - **`anthropic-messages`**: Anthropic Messages API (`streamAnthropic`, `AnthropicOptions`)
-- **`google-generative-ai`**: Google Generative AI API (`streamGoogle`, `GoogleOptions`)
-- **`google-gemini-cli`**: Google Cloud Code Assist API (`streamGoogleGeminiCli`, `GoogleGeminiCliOptions`)
-- **`google-vertex`**: Google Vertex AI API (`streamGoogleVertex`, `GoogleVertexOptions`)
 - **`mistral-conversations`**: Mistral Conversations API (`streamMistral`, `MistralOptions`)
 - **`openai-completions`**: OpenAI Chat Completions API (`streamOpenAICompletions`, `OpenAICompletionsOptions`)
 - **`openai-responses`**: OpenAI Responses API (`streamOpenAIResponses`, `OpenAIResponsesOptions`)
@@ -727,7 +714,6 @@ Notes:
 
 A **provider** offers models through a specific API. For example:
 - **Anthropic** models use the `anthropic-messages` API
-- **Google** models use the `google-generative-ai` API
 - **OpenAI** models use the `openai-responses` API
 - **Mistral** models use the `mistral-conversations` API
 - **xAI, Cerebras, Groq, etc.** models use the `openai-completions` API (OpenAI-compatible)
@@ -739,7 +725,7 @@ import { getProviders, getModels, getModel } from '@mariozechner/pi-ai';
 
 // Get all available providers
 const providers = getProviders();
-console.log(providers); // ['openai', 'anthropic', 'google', 'xai', 'groq', ...]
+console.log(providers); // ['openai', 'anthropic', 'xai', 'groq', ...]
 
 // Get all models from a provider (fully typed)
 const anthropicModels = getModels('anthropic');
@@ -927,11 +913,6 @@ const gpt5 = getModel('openai', 'gpt-5-mini');
 context.messages.push({ role: 'user', content: 'Is that calculation correct?' });
 const gptResponse = await complete(gpt5, context);
 context.messages.push(gptResponse);
-
-// Switch to Gemini
-const gemini = getModel('google', 'gemini-2.5-flash');
-context.messages.push({ role: 'user', content: 'What was the original question?' });
-const geminiResponse = await complete(gemini, context);
 ```
 
 ### Provider Compatibility
@@ -1085,51 +1066,6 @@ Several providers require OAuth authentication instead of static API keys:
 - **Anthropic** (Claude Pro/Max subscription)
 - **OpenAI Codex** (ChatGPT Plus/Pro subscription, access to GPT-5.x Codex models)
 - **GitHub Copilot** (Copilot subscription)
-- **Google Gemini CLI** (Gemini 2.0/2.5 via Google Cloud Code Assist; free tier or paid subscription)
-- **Antigravity** (Free Gemini 3, Claude, GPT-OSS via Google Cloud)
-
-For paid Cloud Code Assist subscriptions, set `GOOGLE_CLOUD_PROJECT` or `GOOGLE_CLOUD_PROJECT_ID` to your project ID.
-
-### Vertex AI
-
-Vertex AI models support either a Google Cloud API key or Application Default Credentials (ADC):
-
-- **API key**: Set `GOOGLE_CLOUD_API_KEY` or pass `apiKey` in the call options.
-- **Local development (ADC)**: Run `gcloud auth application-default login`
-- **CI/Production (ADC)**: Set `GOOGLE_APPLICATION_CREDENTIALS` to point to a service account JSON key file
-
-When using ADC, also set `GOOGLE_CLOUD_PROJECT` (or `GCLOUD_PROJECT`) and `GOOGLE_CLOUD_LOCATION`. You can also pass `project`/`location` in the call options. When using `GOOGLE_CLOUD_API_KEY`, `project` and `location` are not required.
-
-Example:
-
-```bash
-# Local (uses your user credentials)
-gcloud auth application-default login
-export GOOGLE_CLOUD_PROJECT="my-project"
-export GOOGLE_CLOUD_LOCATION="us-central1"
-
-# CI/Production (service account key file)
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
-```
-
-```typescript
-import { getModel, complete } from '@mariozechner/pi-ai';
-
-(async () => {
-  const model = getModel('google-vertex', 'gemini-2.5-flash');
-  const response = await complete(model, {
-    messages: [{ role: 'user', content: 'Hello from Vertex AI' }]
-  }, {
-    apiKey: process.env.GOOGLE_CLOUD_API_KEY,
-  });
-
-  for (const block of response.content) {
-    if (block.type === 'text') console.log(block.text);
-  }
-})().catch(console.error);
-```
-
-Official docs: [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
 
 ### CLI Login
 
@@ -1153,15 +1089,13 @@ import {
   loginAnthropic,
   loginOpenAICodex,
   loginGitHubCopilot,
-  loginGeminiCli,
-  loginAntigravity,
 
   // Token management
   refreshOAuthToken,   // (provider, credentials) => new credentials
   getOAuthApiKey,      // (provider, credentialsMap) => { newCredentials, apiKey } | null
 
   // Types
-  type OAuthProvider,  // 'anthropic' | 'openai-codex' | 'github-copilot' | 'google-gemini-cli' | 'google-antigravity'
+  type OAuthProvider,  // 'anthropic' | 'openai-codex' | 'github-copilot'
   type OAuthCredentials,
 } from '@mariozechner/pi-ai/oauth';
 ```

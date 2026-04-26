@@ -10,10 +10,7 @@ import { hasBedrockCredentials } from "./bedrock-utils.js";
 import { resolveApiKey } from "./oauth.js";
 
 // Resolve OAuth tokens at module level (async, runs before tests)
-const [geminiCliToken, openaiCodexToken] = await Promise.all([
-	resolveApiKey("google-gemini-cli"),
-	resolveApiKey("openai-codex"),
-]);
+const [openaiCodexToken] = await Promise.all([resolveApiKey("openai-codex")]);
 
 async function testAbortSignal<TApi extends Api>(llm: Model<TApi>, options: StreamOptionsWithExtras = {}) {
 	const context: Context = {
@@ -102,18 +99,6 @@ async function testAbortThenNewMessage<TApi extends Api>(llm: Model<TApi>, optio
 }
 
 describe("AI Providers Abort Tests", () => {
-	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider Abort", () => {
-		const llm = getModel("google", "gemini-2.5-flash");
-
-		it("should abort mid-stream", { retry: 3 }, async () => {
-			await testAbortSignal(llm, { thinking: { enabled: true } });
-		});
-
-		it("should handle immediate abort", { retry: 3 }, async () => {
-			await testImmediateAbort(llm, { thinking: { enabled: true } });
-		});
-	});
-
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Completions Provider Abort", () => {
 		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini")!;
 		void _compat;
@@ -214,19 +199,6 @@ describe("AI Providers Abort Tests", () => {
 
 		it("should handle immediate abort", { retry: 3 }, async () => {
 			await testImmediateAbort(llm);
-		});
-	});
-
-	// Google Gemini CLI / Antigravity share the same provider, so one test covers both
-	describe("Google Gemini CLI Provider Abort", () => {
-		it.skipIf(!geminiCliToken)("should abort mid-stream", { retry: 3 }, async () => {
-			const llm = getModel("google-gemini-cli", "gemini-2.5-flash");
-			await testAbortSignal(llm, { apiKey: geminiCliToken });
-		});
-
-		it.skipIf(!geminiCliToken)("should handle immediate abort", { retry: 3 }, async () => {
-			const llm = getModel("google-gemini-cli", "gemini-2.5-flash");
-			await testImmediateAbort(llm, { apiKey: geminiCliToken });
 		});
 	});
 

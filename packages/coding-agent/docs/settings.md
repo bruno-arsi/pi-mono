@@ -149,7 +149,7 @@ When multiple sources specify a session directory, `--session-dir` CLI flag take
 
 ```json
 {
-  "enabledModels": ["claude-*", "gpt-4o", "gemini-2*"]
+  "enabledModels": ["claude-*", "gpt-4o"]
 }
 ```
 

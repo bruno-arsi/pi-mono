@@ -12,7 +12,6 @@ const aiEntryUrl = new URL("../src/index.ts", import.meta.url).href;
 const SDK_SPECIFIERS = [
 	"@anthropic-ai/sdk",
 	"openai",
-	"@google/genai",
 	"@mistralai/mistralai",
 	"@aws-sdk/client-bedrock-runtime",
 ] as const;

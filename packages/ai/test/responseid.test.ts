@@ -7,13 +7,8 @@ import { resolveApiKey } from "./oauth.js";
 
 type StreamOptionsWithExtras = StreamOptions & Record<string, unknown>;
 
-const oauthTokens = await Promise.all([
-	resolveApiKey("github-copilot"),
-	resolveApiKey("google-gemini-cli"),
-	resolveApiKey("google-antigravity"),
-	resolveApiKey("openai-codex"),
-]);
-const [githubCopilotToken, geminiCliToken, antigravityToken, openaiCodexToken] = oauthTokens;
+const oauthTokens = await Promise.all([resolveApiKey("github-copilot"), resolveApiKey("openai-codex")]);
+const [githubCopilotToken, openaiCodexToken] = oauthTokens;
 
 async function expectResponseId<TApi extends Api>(model: Model<TApi>, options: StreamOptionsWithExtras = {}) {
 	const context: Context = {
@@ -29,31 +24,6 @@ async function expectResponseId<TApi extends Api>(model: Model<TApi>, options: S
 }
 
 describe("responseId E2E Tests", () => {
-	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider", () => {
-		const llm = getModel("google", "gemini-2.5-flash");
-
-		it("should expose responseId", { retry: 3, timeout: 30000 }, async () => {
-			await expectResponseId(llm);
-		});
-	});
-
-	describe("Google Vertex Provider", () => {
-		const vertexProject = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
-		const vertexLocation = process.env.GOOGLE_CLOUD_LOCATION;
-		const vertexApiKey = process.env.GOOGLE_CLOUD_API_KEY;
-		const isVertexConfigured = Boolean(vertexProject && vertexLocation);
-		const vertexOptions = { project: vertexProject, location: vertexLocation } as const;
-		const llm = getModel("google-vertex", "gemini-3-flash-preview");
-
-		it.skipIf(!isVertexConfigured)("should expose responseId with ADC", { retry: 3, timeout: 30000 }, async () => {
-			await expectResponseId(llm, vertexOptions);
-		});
-
-		it.skipIf(!vertexApiKey)("should expose responseId with API key", { retry: 3, timeout: 30000 }, async () => {
-			await expectResponseId(llm, { apiKey: vertexApiKey! });
-		});
-	});
-
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Completions Provider", () => {
 		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini");
 		void _compat;
@@ -115,25 +85,6 @@ describe("responseId E2E Tests", () => {
 				await expectResponseId(llm, { apiKey: githubCopilotToken });
 			},
 		);
-	});
-
-	describe("Google Gemini CLI Provider", () => {
-		it.skipIf(!geminiCliToken)("should expose responseId", { retry: 3, timeout: 30000 }, async () => {
-			const llm = getModel("google-gemini-cli", "gemini-2.5-flash");
-			await expectResponseId(llm, { apiKey: geminiCliToken });
-		});
-	});
-
-	describe("Google Antigravity Provider", () => {
-		it.skipIf(!antigravityToken)("Gemini path should expose responseId", { retry: 3, timeout: 30000 }, async () => {
-			const llm = getModel("google-antigravity", "gemini-3.1-pro-high");
-			await expectResponseId(llm, { apiKey: antigravityToken });
-		});
-
-		it.skipIf(!antigravityToken)("Claude path should expose responseId", { retry: 3, timeout: 30000 }, async () => {
-			const llm = getModel("google-antigravity", "claude-sonnet-4-6");
-			await expectResponseId(llm, { apiKey: antigravityToken });
-		});
 	});
 
 	describe("OpenAI Codex Provider", () => {

@@ -22,11 +22,9 @@ const __dirname = dirname(__filename);
 const oauthTokens = await Promise.all([
 	resolveApiKey("anthropic"),
 	resolveApiKey("github-copilot"),
-	resolveApiKey("google-gemini-cli"),
-	resolveApiKey("google-antigravity"),
 	resolveApiKey("openai-codex"),
 ]);
-const [anthropicOAuthToken, githubCopilotToken, geminiCliToken, antigravityToken, openaiCodexToken] = oauthTokens;
+const [anthropicOAuthToken, githubCopilotToken, openaiCodexToken] = oauthTokens;
 
 // Calculator tool definition (same as examples)
 // Note: Using StringEnum helper because Google's API doesn't support anyOf/const patterns
@@ -349,79 +347,6 @@ async function multiTurn<TApi extends Api>(model: Model<TApi>, options?: StreamO
 }
 
 describe("Generate E2E Tests", () => {
-	describe.skipIf(!process.env.GEMINI_API_KEY)("Gemini Provider (gemini-2.5-flash)", () => {
-		const llm = getModel("google", "gemini-2.5-flash");
-
-		it("should complete basic text generation", { retry: 3 }, async () => {
-			await basicTextGeneration(llm);
-		});
-
-		it("should handle tool calling", { retry: 3 }, async () => {
-			await handleToolCall(llm);
-		});
-
-		it("should handle streaming", { retry: 3 }, async () => {
-			await handleStreaming(llm);
-		});
-
-		it("should handle thinking", { retry: 3 }, async () => {
-			await handleThinking(llm, { thinking: { enabled: true, budgetTokens: 1024 } });
-		});
-
-		it("should handle multi-turn with thinking and tools", { retry: 3 }, async () => {
-			await multiTurn(llm, { thinking: { enabled: true, budgetTokens: 2048 } });
-		});
-
-		it("should handle image input", { retry: 3 }, async () => {
-			await handleImage(llm);
-		});
-	});
-
-	describe("Google Vertex Provider (gemini-3-flash-preview)", () => {
-		const vertexProject = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
-		const vertexLocation = process.env.GOOGLE_CLOUD_LOCATION;
-		const vertexApiKey = process.env.GOOGLE_CLOUD_API_KEY;
-		const isVertexConfigured = Boolean(vertexProject && vertexLocation);
-		const vertexOptions = { project: vertexProject, location: vertexLocation } as const;
-		const llm = getModel("google-vertex", "gemini-3-flash-preview");
-
-		it.skipIf(!isVertexConfigured)("should complete basic text generation", { retry: 3 }, async () => {
-			await basicTextGeneration(llm, vertexOptions);
-		});
-
-		it.skipIf(!vertexApiKey)("should complete basic text generation with Vertex API key", { retry: 3 }, async () => {
-			await basicTextGeneration(llm, { apiKey: vertexApiKey! });
-		});
-
-		it.skipIf(!isVertexConfigured)("should handle tool calling", { retry: 3 }, async () => {
-			await handleToolCall(llm, vertexOptions);
-		});
-
-		it.skipIf(!isVertexConfigured)("should handle thinking", { retry: 3 }, async () => {
-			const { ThinkingLevel } = await import("@google/genai");
-			await handleThinking(llm, {
-				...vertexOptions,
-				thinking: { enabled: true, budgetTokens: 1024, level: ThinkingLevel.LOW },
-			});
-		});
-
-		it.skipIf(!isVertexConfigured)("should handle streaming", { retry: 3 }, async () => {
-			await handleStreaming(llm, vertexOptions);
-		});
-
-		it.skipIf(!isVertexConfigured)("should handle multi-turn with thinking and tools", { retry: 3 }, async () => {
-			const { ThinkingLevel } = await import("@google/genai");
-			await multiTurn(llm, {
-				...vertexOptions,
-				thinking: { enabled: true, budgetTokens: 1024, level: ThinkingLevel.MEDIUM },
-			});
-		});
-
-		it.skipIf(!isVertexConfigured)("should handle image input", { retry: 3 }, async () => {
-			await handleImage(llm, vertexOptions);
-		});
-	});
-
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Completions Provider (gpt-4o-mini)", () => {
 		const { compat: _compat, ...baseModel } = getModel("openai", "gpt-4o-mini");
 		void _compat;
@@ -722,8 +647,8 @@ describe("Generate E2E Tests", () => {
 		},
 	);
 
-	describe.skipIf(!process.env.ZAI_API_KEY)("zAI Provider (glm-5 via OpenAI Completions)", () => {
-		const llm = getModel("zai", "glm-5");
+	describe.skipIf(!process.env.ZAI_API_KEY)("zAI Provider (glm-5-turbo via OpenAI Completions)", () => {
+		const llm = getModel("zai", "glm-5-turbo");
 
 		it("should complete basic text generation", { retry: 3 }, async () => {
 			await basicTextGeneration(llm);
@@ -971,124 +896,6 @@ describe("Generate E2E Tests", () => {
 
 		it.skipIf(!githubCopilotToken)("should handle image input", { retry: 3 }, async () => {
 			await handleImage(llm, { apiKey: githubCopilotToken });
-		});
-	});
-
-	describe("Google Gemini CLI Provider (gemini-2.5-flash)", () => {
-		const llm = getModel("google-gemini-cli", "gemini-2.5-flash");
-
-		it.skipIf(!geminiCliToken)("should complete basic text generation", { retry: 3 }, async () => {
-			await basicTextGeneration(llm, { apiKey: geminiCliToken });
-		});
-
-		it.skipIf(!geminiCliToken)("should handle tool calling", { retry: 3 }, async () => {
-			await handleToolCall(llm, { apiKey: geminiCliToken });
-		});
-
-		it.skipIf(!geminiCliToken)("should handle streaming", { retry: 3 }, async () => {
-			await handleStreaming(llm, { apiKey: geminiCliToken });
-		});
-
-		it.skipIf(!geminiCliToken)("should handle thinking", { retry: 3 }, async () => {
-			await handleThinking(llm, { apiKey: geminiCliToken, thinking: { enabled: true, budgetTokens: 1024 } });
-		});
-
-		it.skipIf(!geminiCliToken)("should handle multi-turn with thinking and tools", { retry: 3 }, async () => {
-			await multiTurn(llm, { apiKey: geminiCliToken, thinking: { enabled: true, budgetTokens: 2048 } });
-		});
-
-		it.skipIf(!geminiCliToken)("should handle image input", { retry: 3 }, async () => {
-			await handleImage(llm, { apiKey: geminiCliToken });
-		});
-	});
-
-	describe("Google Gemini CLI Provider (gemini-3-flash-preview with thinkingLevel)", () => {
-		const llm = getModel("google-gemini-cli", "gemini-3-flash-preview");
-
-		it.skipIf(!geminiCliToken)("should handle thinking with thinkingLevel", { retry: 3 }, async () => {
-			await handleThinking(llm, { apiKey: geminiCliToken, thinking: { enabled: true, level: "LOW" } });
-		});
-
-		it.skipIf(!geminiCliToken)("should handle multi-turn with thinking and tools", { retry: 3 }, async () => {
-			await multiTurn(llm, { apiKey: geminiCliToken, thinking: { enabled: true, level: "MEDIUM" } });
-		});
-	});
-
-	describe("Google Antigravity Provider (gemini-3.1-pro-high)", () => {
-		const llm = getModel("google-antigravity", "gemini-3.1-pro-high");
-
-		it.skipIf(!antigravityToken)("should complete basic text generation", { retry: 3 }, async () => {
-			await basicTextGeneration(llm, { apiKey: antigravityToken });
-		});
-
-		it.skipIf(!antigravityToken)("should handle tool calling", { retry: 3 }, async () => {
-			await handleToolCall(llm, { apiKey: antigravityToken });
-		});
-
-		it.skipIf(!antigravityToken)("should handle streaming", { retry: 3 }, async () => {
-			await handleStreaming(llm, { apiKey: antigravityToken });
-		});
-
-		it.skipIf(!antigravityToken)("should handle thinking with thinkingLevel", { retry: 3 }, async () => {
-			// gemini-3-pro only supports LOW/HIGH
-			await handleThinking(llm, {
-				apiKey: antigravityToken,
-				thinking: { enabled: true, level: "LOW" },
-			});
-		});
-
-		it.skipIf(!antigravityToken)("should handle multi-turn with thinking and tools", { retry: 3 }, async () => {
-			await multiTurn(llm, { apiKey: antigravityToken, thinking: { enabled: true, level: "HIGH" } });
-		});
-
-		it.skipIf(!antigravityToken)("should handle image input", { retry: 3 }, async () => {
-			await handleImage(llm, { apiKey: antigravityToken });
-		});
-	});
-
-	describe("Google Antigravity Provider (gemini-3.1-pro-high with thinkingLevel)", () => {
-		const llm = getModel("google-antigravity", "gemini-3.1-pro-high");
-
-		it.skipIf(!antigravityToken)("should handle thinking with thinkingLevel HIGH", { retry: 3 }, async () => {
-			// gemini-3-pro only supports LOW/HIGH
-			await handleThinking(llm, {
-				apiKey: antigravityToken,
-				thinking: { enabled: true, level: "HIGH" },
-			});
-		});
-	});
-
-	describe("Google Antigravity Provider (claude-sonnet-4-5)", () => {
-		const llm = getModel("google-antigravity", "claude-sonnet-4-5");
-
-		it.skipIf(!antigravityToken)("should complete basic text generation", { retry: 3 }, async () => {
-			await basicTextGeneration(llm, { apiKey: antigravityToken });
-		});
-
-		it.skipIf(!antigravityToken)("should handle tool calling", { retry: 3 }, async () => {
-			await handleToolCall(llm, { apiKey: antigravityToken });
-		});
-
-		it.skipIf(!antigravityToken)("should handle streaming", { retry: 3 }, async () => {
-			await handleStreaming(llm, { apiKey: antigravityToken });
-		});
-
-		it.skipIf(!antigravityToken)("should handle thinking", { retry: 3 }, async () => {
-			// claude-sonnet-4-5 has reasoning: false, use claude-sonnet-4-5-thinking
-			const thinkingModel = getModel("google-antigravity", "claude-sonnet-4-5-thinking");
-			await handleThinking(thinkingModel, {
-				apiKey: antigravityToken,
-				thinking: { enabled: true, budgetTokens: 4096 },
-			});
-		});
-
-		it.skipIf(!antigravityToken)("should handle multi-turn with thinking and tools", { retry: 3 }, async () => {
-			const thinkingModel = getModel("google-antigravity", "claude-sonnet-4-5-thinking");
-			await multiTurn(thinkingModel, { apiKey: antigravityToken, thinking: { enabled: true, budgetTokens: 4096 } });
-		});
-
-		it.skipIf(!antigravityToken)("should handle image input", { retry: 3 }, async () => {
-			await handleImage(llm, { apiKey: antigravityToken });
 		});
 	});
 
