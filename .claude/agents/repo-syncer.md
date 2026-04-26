@@ -116,7 +116,7 @@ If any of these return results, identify the cherry-pick that reintroduced them,
 
 ### 6. Type-check
 
-`AGENTS.md` rule: never run `npm run build` or `npm test`. Use `npm run check` from the repo root (it runs biome + tsgo type-check):
+`AGENTS.md`'s general "never run `npm test`" rule is **explicitly relaxed for this sync workflow** — see step 7. Start with `npm run check` from the repo root (biome + tsgo type-check):
 
 ```bash
 npm run check 2>&1 | tail -50
@@ -124,7 +124,22 @@ npm run check 2>&1 | tail -50
 
 If anything fails, surface to the user — do not auto-fix unless the user asks.
 
-### 7. Report
+### 7. Run the test suite
+
+After `npm run check` is green, run the full test suite from the repo root to catch upstream regressions whose CI may have skipped them (e.g. upstream's CI failed earlier on unrelated typecheck errors and never reached these tests):
+
+```bash
+npm test 2>&1 | tail -80
+```
+
+Tests that need real API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `ZAI_API_KEY`, etc.) are guarded by `describe.skipIf` and will skip cleanly in a no-credentials environment — only mocked / local tests execute.
+
+If any test fails:
+- Read the failure carefully. Most failures point at a real bug introduced by the upstream commit (e.g. a Claude detection helper that didn't normalize whitespace and so the new "Application inference profile" tests fail).
+- Surface the failure to the user with the failing test name, the assertion diff, and the upstream commit that introduced it. Do not auto-fix unless the user asks.
+- Do not push the sync branch until the test suite is green or the user explicitly accepts the failures.
+
+### 8. Report
 
 Before pushing, write a summary for the user:
 
@@ -133,9 +148,10 @@ Before pushing, write a summary for the user:
 - For MERGE entries: short list of `<sha> <subject>`
 - For REVIEW entries: full ask with diff snippet
 - Result of `npm run check`
+- Result of `npm test` (pass/fail count, names of any failing tests)
 - Suggested push command (do not push automatically without user confirmation)
 
-### 8. Push (only after user approval)
+### 9. Push (only after user approval)
 
 ```bash
 git push -u origin sync/upstream-<date>
@@ -151,7 +167,7 @@ Do not push to `main` directly. Do not force-push. Let the user open the merge P
 - Never push to `origin/main` directly. Use a topic branch.
 - Never force-push.
 - Never bypass `AGENTS.md`'s "Fork Customizations" list. If the list contradicts what upstream wants, stop and ask the user.
-- Never run `npm run build`, `npm run dev`, or `npm test` (per `AGENTS.md`). Use `npm run check`.
+- Never run `npm run build` or `npm run dev` (per `AGENTS.md`). `npm test` is allowed only in step 7 of this workflow.
 - Never auto-fix conflicts in customized files. Surface them.
 - Never invent SHAs or skip the verification step in section 5.
 
