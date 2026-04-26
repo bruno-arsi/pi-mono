@@ -214,6 +214,12 @@ We dropped Google/Gemini provider support and the `@google/genai` SDK. Reintrodu
 
 If a cherry-pick or merge would recreate any of these, abort and ask the user.
 
+### Excluded from upstream (never adopt)
+
+Providers upstream introduced *after* the fork point that we deliberately do not pull in. They were never in our tree, and we want sync agents to skip any commit that adds them:
+
+- `deepseek` provider (and any `packages/ai/src/providers/deepseek*.ts`, `KnownProvider`/`KnownApi` `"deepseek"` entries, `deepseek` envMap entry, default-model entries, docs sections, or test blocks). Skip cherry-picks whose primary purpose is adding/fixing DeepSeek. If a non-DeepSeek fix is bundled with DeepSeek changes in the same upstream commit, surface it to the user instead of silently dropping or partially applying it.
+
 ### Modified (changes must survive any sync)
 
 - `packages/ai/src/types.ts` — `KnownApi` and `KnownProvider` unions have all Google entries removed. The `thoughtSignature` comment on `ToolCall` was rephrased to remove the "Google-specific" wording (it is used by `openai-completions` for `reasoning.encrypted` payloads).
