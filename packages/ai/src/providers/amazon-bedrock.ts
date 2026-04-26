@@ -476,13 +476,21 @@ function handleContentBlockStop(
 	}
 }
 
+// Normalize whitespace to dashes so substring checks below match
+// human-readable model names (e.g. "Claude Opus 4.6") in addition to
+// canonical model IDs (e.g. "claude-opus-4-6-v1").
+function normalizeModelSeparators(s: string): string {
+	return s.toLowerCase().replace(/\s+/g, "-");
+}
+
 /**
  * Check if the model supports adaptive thinking (Opus 4.6+, Sonnet 4.6).
  * Checks both model ID and model name to support application inference profiles
  * whose ARNs don't contain the model name.
  */
 function supportsAdaptiveThinking(modelId: string, modelName?: string): boolean {
-	const candidates = modelName ? [modelId, modelName] : [modelId];
+	const raw = modelName ? [modelId, modelName] : [modelId];
+	const candidates = raw.map(normalizeModelSeparators);
 	return candidates.some(
 		(s) =>
 			s.includes("opus-4-6") ||
@@ -499,7 +507,8 @@ function mapThinkingLevelToEffort(
 	modelId: string,
 	modelName?: string,
 ): "low" | "medium" | "high" | "xhigh" | "max" {
-	const candidates = modelName ? [modelId, modelName] : [modelId];
+	const raw = modelName ? [modelId, modelName] : [modelId];
+	const candidates = raw.map(normalizeModelSeparators);
 	switch (level) {
 		case "minimal":
 		case "low":
@@ -565,9 +574,9 @@ function isAnthropicClaudeModel(model: Model<"bedrock-converse-stream">): boolea
  * Amazon Nova models have automatic caching and don't need explicit cache points.
  */
 function supportsPromptCaching(model: Model<"bedrock-converse-stream">): boolean {
-	const candidates = [model.id.toLowerCase()];
+	const candidates = [normalizeModelSeparators(model.id)];
 	if (model.name) {
-		candidates.push(model.name.toLowerCase());
+		candidates.push(normalizeModelSeparators(model.name));
 	}
 
 	const hasClaudeRef = candidates.some((s) => s.includes("claude"));
